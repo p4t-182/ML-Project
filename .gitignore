@@ -1,2 +1,3 @@
 archive/phishing_email.csv
 tf_idfmatrix.csv
+__pycache__/
