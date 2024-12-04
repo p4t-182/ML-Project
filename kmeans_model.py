@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from wordcloud import WordCloud
+from sklearn.metrics import silhouette_score
 from export_tfmatrix import test_df
 
 #nltk.download('punkt')
@@ -40,11 +41,15 @@ tf_idf_df = pd.read_csv("tf_idfmatrix.csv")
         # tf_idf_df[newname] = temp
         # print(f"Renaming column {col} to {newname}")
         
-#changed max_iter to 500?
-kmeans = KMeans(n_clusters=n_clusters, random_state=90215, max_iter=500)
-kmeans.fit(tf_idf_df)
+tsne = TSNE(n_components=2, random_state=90215, perplexity=30, max_iter=300)
+reduced_data = tsne.fit_transform(tf_idf_df)
+reduced_df = pd.DataFrame(reduced_data, columns=['Component 1', 'Component 2'])
+kmeans = KMeans(n_clusters=n_clusters, random_state=90215, max_iter=500, n_init=10)
+kmeans.fit(reduced_df)
 
 labels = kmeans.labels_
+
+
 
 
 # Code for WordCLoud visualization
@@ -59,20 +64,22 @@ labels = kmeans.labels_
 
 
 # Inertia/elbow method - We chose our k based on this and the most common words in each cluster (whichever made the most sense)
-# distorsions = []
-# for k in range(2,20):
-#     kmeans = KMeans(n_clusters=k, random_state=90215, max_iter=500)
-#     kmeans.fit(tf_idf_df)
-#     distorsions.append(kmeans.inertia_)
+# N-init and t-sne fixed the elbow plot
+distorsions = []
+for k in range(2,20):
+    kmeans = KMeans(n_clusters=k, random_state=90215, max_iter=500, n_init=10)
+    kmeans.fit(reduced_df)
+    distorsions.append(kmeans.inertia_)
 
-# fig = plt.figure(figsize=(15, 5))
-# plt.plot(range(2, 20), distorsions)
-# plt.xticks(range(2, 20))
-# plt.grid(True)
-# plt.title('Elbow Curve')
-# plt.xlabel("K")
-# plt.ylabel("Inertia")
-# plt.show()
+fig = plt.figure(figsize=(15, 5))
+plt.plot(range(2, 20), distorsions, marker='o')
+plt.xticks(range(2, 20))
+plt.grid(True)
+plt.title('Elbow Curve')
+plt.xlabel("K")
+plt.ylabel("Inertia")
+plt.savefig("images/ElbowPlot.png")
+plt.show()
 
 # Print the 15 most common words in each cluster
 # dataframe_copy = test_df.copy()
@@ -95,14 +102,10 @@ labels = kmeans.labels_
 #     plt.savefig(f'images/topwords_cluster{cluster_num + 1}.png')
 #     plt.show()
 
-
-# Visualize clusters using scatterplot, we need to reduce dimensions (thousands) using tsne before plotting otherwise it would be impossible to visualize
-# We could try increasing max_iter?
-# tsne = TSNE(n_components=2, random_state=90215, perplexity=30, max_iter=300)
-# reduced_data = tsne.fit_transform(tf_idf_df)
-
-
-# reduced_df = pd.DataFrame(reduced_data, columns=['Component 1', 'Component 2'])
+# centroids = kmeans.cluster_centers_
+# centroids = np.delete(centroids, -1, axis=0) #get rid of outlier centroid
+# reduced_df = reduced_df.drop(1272) #weird outlier 
+# labels = np.delete(labels, 1272) #remove label at outlier index
 # reduced_df['Cluster'] = labels
 
 # plt.figure(figsize=(10, 8))
@@ -111,8 +114,17 @@ labels = kmeans.labels_
 #     hue='Cluster', data=reduced_df,
 #     palette='viridis', legend='full', s=60
 # )
+
+# plt.scatter(centroids[:, 0], centroids[:, 1], marker='*', color='red', s=200, label="Centroids")
 # plt.title("KMeans Clusters (t-SNE reduced TF-IDF data)")
 # plt.xlabel("Component 1")
 # plt.ylabel("Component 2")
 # plt.legend(title='Cluster')
 # plt.show()
+
+
+# with open('outlier.txt', 'w') as file: #outlier had nan values in tf idf row
+#     file.write(test_df.iloc[1272, :]['subject'])
+
+# file.close()
+
